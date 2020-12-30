@@ -58,6 +58,11 @@ PiCam_HQ = (4056, 3040)
 # Autofind
 PiCam_auto = (0, 0)
 
+# need to flip image
+PiFlip= True
+
+# save Raw_images
+saveRawImages = False
 
 class App():
 
@@ -102,7 +107,7 @@ class App():
         # default image path
         self.imagePath = "/home/pi/images/"
         self.imagePrefix = "img_"
-        self.videoPath = "/home/pi/videos/"
+        self.videoPath = "/mnt/video/"
         self.videoPrefix = "video_"
         self.videoCount= 0
         # arduino object
@@ -383,12 +388,12 @@ class App():
         return blank_HDimage
 
     def storeImage(self):
-        print("in storeImageThread")
-        fileName = self.imagePath + "raw_"
-        fileName = fileName + self.imagePrefix
-        fileName = fileName + "{:05d}".format(self.arduino.frameCount)
-        fileName = fileName + ".jpg"
-        cv2.imwrite(fileName, self.storedImage)
+        if saveRawImages:
+            fileName = self.imagePath + "raw_"
+            fileName = fileName + self.imagePrefix
+            fileName = fileName + "{:05d}".format(self.arduino.frameCount)
+            fileName = fileName + ".jpg"
+            cv2.imwrite(fileName, self.storedImage)
 
         # resize image to HD
         HD_image = self.resizeImageToHD(self.storedImage)
@@ -443,7 +448,9 @@ class App():
                         piCam.close()
                     if frame is None:
                         continue
-                    frame = cv2.rotate(frame, cv2.ROTATE_180)
+
+                    if PiFlip:
+                        frame = cv2.rotate(frame, cv2.ROTATE_180)
                     self.storedImage = copy.deepcopy(frame)
                     self.storedImage = cv2.cvtColor(self.storedImage,
                                                     cv2.COLOR_BGR2RGB)
@@ -466,7 +473,8 @@ class App():
                             continue
                         # put capture frame rectangle
                         # convert from view to capture size
-                        frame = cv2.rotate(frame, cv2.ROTATE_180)
+                        if PiFlip:
+                            frame = cv2.rotate(frame, cv2.ROTATE_180)
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     else:
                         time.sleep(0.05)
