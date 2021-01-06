@@ -105,6 +105,7 @@ class App():
         self.imageLeft = 0
         self.imageRight = self.camWidth-1
         self.imageBottom = self.camHeight-1
+        self.focusIndex = ""
         self.loadConfig()
 
         # default image path
@@ -189,6 +190,31 @@ class App():
         self.captureFlagLabel.pack(side=tk.RIGHT, ipadx=1, padx=2,pady=8)
         self.refreshCaptureFlagLabel()
 
+        self.focusIndexFrame = tk.LabelFrame(self.topInfo,
+                                             width="20")
+
+        # Enable Focus Index
+        mFont = tkFont.Font(root=self.focusIndexFrame, family="Courier", size=12)
+
+        self.enableFocusIndex = tk.IntVar()
+        self.focusIndexCheck = tk.Checkbutton(self.focusIndexFrame,
+                                              variable=self.enableFocusIndex,
+                                              justify=tk.LEFT,
+                                              font=mFont,
+                                              width="16")
+        self.focusIndexCheck.pack(side=tk.LEFT)
+#        self.focusIndexLabel = tk.Label(self.focusIndexFrame,
+#                                        text=str(self.focusIndex),
+#                                        width="18")
+        self.focusIndexFrame.pack(pady=4)
+#        self.focusIndexLabel.pack()
+
+
+
+
+
+
+
         # create command frame
         self.commandFrame = tk.Frame(self.rightPanel)
         self.commandFrame.pack(side=tk.TOP)
@@ -199,7 +225,7 @@ class App():
                                        command=self.OnFwdCallBack,
                                        font=sFont,
                                        width="14")
-        self.forwardButton.pack(padx=2, ipady=4,pady=5)
+        self.forwardButton.pack(padx=2, ipady=4,pady=3)
 
         self.stopButton = tk.Button(self.commandFrame,
                                     command=self.OnStopCallBack,
@@ -207,7 +233,7 @@ class App():
                                     font=sFont,
                                     width="14")
 
-        self.stopButton.pack(padx=2, ipady=6, pady=5)
+        self.stopButton.pack(padx=2, ipady=6, pady=3)
 
         self.recordButton = tk.Button(self.commandFrame,
                                       command=self.OnStartCallBack,
@@ -215,7 +241,7 @@ class App():
                                       bg="green",
                                       activebackground="pale green",
                                       width="14")
-        self.recordButton.pack(padx=2, pady=3, ipady=5)
+        self.recordButton.pack(padx=2, pady=3, ipady=3)
 
         self.clearButton = tk.Button(self.commandFrame,
                                      command=self.OnClearAllCallBack,
@@ -223,14 +249,14 @@ class App():
                                      bg="yellow",
                                      activebackground="light yellow",
                                      width="14")
-        self.clearButton.pack(padx=2, ipady=4,pady=5)
+        self.clearButton.pack(padx=2, ipady=4,pady=3)
 
         self.optionButton = tk.Button(self.commandFrame,
                                       bg="gray80",
                                       command=self.OnOptionCallBack,
                                       font=sFont,
                                       width="14")
-        self.optionButton.pack(padx=2, ipady=4,pady=5)
+        self.optionButton.pack(padx=2, ipady=4,pady=3)
 
 
         self.blanktext = tk.Text(self.commandFrame,
@@ -281,6 +307,7 @@ class App():
     def refreshLanguage(self):
         self.root.wm_title(self.lg.getText("Title"))
         self.photoLabelFrame["text"] = self.lg.getText("Label Frame")
+        self.focusIndexFrame["text"] = self.lg.getText("focus index")
         self.stopButton["text"] = self.lg.getText("STOP BUTTON")
         self.forwardButton["text"] = self.lg.getText("FWD BUTTON")
         self.recordButton["text"] = self.lg.getText("START BUTTON")
@@ -480,9 +507,9 @@ class App():
                             continue
                         # put capture frame rectangle
                         # convert from view to capture size
-                        if PiRotate:
+			if PiRotate:
                             frame = cv2.rotate(frame, cv2.ROTATE_180)
-                        if PiFlip:
+			if PiFlip:
                             frame = cv2.flip(frame, 0)
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     else:
@@ -496,6 +523,16 @@ class App():
                 P2 = (int(self.imageRight * xratio + 0.5),
                       int(self.imageBottom * yratio + 0.5))
                 smallFrame = imutils.resize(frame, width=600)
+
+                if self.enableFocusIndex.get() > 0:
+                    self.focusIndex = self.getFocusIndex(smallFrame,P1,P2)
+                    #print("focus Index",self.focusIndex)
+        # Enable Focus Index
+                    self.focusIndexCheck["text"] = "{:.3f}".format(self.focusIndex)
+#                    self.focusIndexLabel["text"] = "{:.3f}".format(self.focusIndex)
+                else:
+                    self.focusIndexCheck["text"] = " --- "
+#                    self.focusIndexLabel["text"] = ""
 
                 cv2.rectangle(smallFrame, P1, P2,
                               (0, 0, 255),
@@ -573,6 +610,34 @@ class App():
         file.write("images={}\n".format(str(self.saveImages).upper()))
         file.write("rawImages={}\n".format(str(self.saveRawImages).upper()))
         file.close()
+
+
+    # focus index calculation
+    # this routine  create a relative contrast index
+    # This is the way to have the best focus
+    # More difference between neighbour pixels better is the focus.
+
+    def getFocusIndex(self,srcImage,P1,P2):
+        diff = 0
+        sum = 0
+        count = 0
+        for  y  in range(P1[1],P2[1]):
+            pix0 = float(srcImage[y][P1[0]][0]) + \
+                   float(srcImage[y][P1[0]][1]) + \
+                   float(srcImage[y][P1[0]][2])
+
+            for x in range(P1[0]+1,P2[0]):
+                pix1 = float(srcImage[y][x][0]) + \
+                       float(srcImage[y][x][1]) + \
+                       float(srcImage[y][x][2])
+
+                sum = sum + pix1
+                diff = diff+ (abs(pix0 - pix1))
+                count = count + 1
+                pix0 = pix1
+        fIdx = count * diff / (sum * count)
+        print("fIdx",fIdx)
+        return fIdx * 100.0
 
     def mainloop(self):
         self.root.mainloop()

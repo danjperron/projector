@@ -45,7 +45,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 '''
 
-# PiCamera Resolution
+# PiCameraResolution
 # V1
 PiCam_V1 = (2592, 1944)
 
@@ -58,21 +58,20 @@ PiCam_HQ = (4056, 3040)
 # Autofind
 PiCam_auto = (0, 0)
 
-# need to rotate 180 degree
-PiRotate = False
-# need to flip image
-PiFlip= True
 
 class App():
 
     def __init__(self, camDevice="/dev/video0",
                  camResolution=PiCam_auto,
                  serialPort="/dev/ttyACM0"):
-        # Language Class currently only French and English
+        # Language Class currently ony French and English
         self.lg = Language()
 
-        self.videoFlag=False
-        self.videoOut=None
+#        self.fifoFile=None
+#        self.fifoFileName="/mnt/ramdisk/fifo1"
+
+
+
         # if resolution is 0 then auto check
         if camResolution[0] == 0:
             cam = picamera.camera.PiCamera()
@@ -83,10 +82,6 @@ class App():
             self.camWidth = camResolution[0]
             self.camHeight = camResolution[1]
         self.camDevice = camDevice
-
-        # output Flag
-        self.saveRawImages = False
-        self.saveImages = False
 
         # camera  settings
         self.cameraBrightness = 50
@@ -110,9 +105,7 @@ class App():
         # default image path
         self.imagePath = "/home/pi/images/"
         self.imagePrefix = "img_"
-        self.videoPath = "/mnt/video/"
-        self.videoPrefix = "video_"
-        self.videoCount= 0
+
         # arduino object
         self.arduino = Arduino(port=serialPort)
         # turn light on
@@ -162,19 +155,16 @@ class App():
         self.topInfo.pack(side=tk.TOP)
 
         # no text=""
-        # all text are made using the refreshLanguage() function
-
+        # all text are made using the refreshLanguage function
 
         self.photoLabelFrame = tk.LabelFrame(self.topInfo,
                                              width="25")
-        mFont = tkFont.Font(root=self.photoLabelFrame, family="Courier", size=12)
-
         self.photoLabel = tk.Label(self.photoLabelFrame,
                                    text=str(self.arduino.frameCount),
-                                   font=mFont,
                                    width="18")
-        self.photoLabelFrame.pack(pady=4)
+        self.photoLabelFrame.pack(pady=10)
         self.photoLabel.pack()
+
         self.captureFlagFrame = tk.Frame(self.rightPanel)
         self.captureFlagFrame.pack(side=tk.TOP)
 
@@ -186,7 +176,7 @@ class App():
                                          bg=self.captureFlagFrame[
                                             "background"])
 
-        self.captureFlagLabel.pack(side=tk.RIGHT, ipadx=1, padx=2,pady=8)
+        self.captureFlagLabel.pack(side=tk.RIGHT, ipadx=1, padx=2)
         self.refreshCaptureFlagLabel()
 
         # create command frame
@@ -194,12 +184,13 @@ class App():
         self.commandFrame.pack(side=tk.TOP)
 
         sFont = tkFont.Font(root=self.commandFrame, family="Courier", size=14)
+
         self.forwardButton = tk.Button(self.commandFrame,
                                        bg="gray80",
                                        command=self.OnFwdCallBack,
                                        font=sFont,
                                        width="14")
-        self.forwardButton.pack(padx=2, ipady=4,pady=5)
+        self.forwardButton.pack(padx=2, pady=3)
 
         self.stopButton = tk.Button(self.commandFrame,
                                     command=self.OnStopCallBack,
@@ -207,7 +198,7 @@ class App():
                                     font=sFont,
                                     width="14")
 
-        self.stopButton.pack(padx=2, ipady=6, pady=5)
+        self.stopButton.pack(padx=2, ipady=12, pady=3)
 
         self.recordButton = tk.Button(self.commandFrame,
                                       command=self.OnStartCallBack,
@@ -217,25 +208,31 @@ class App():
                                       width="14")
         self.recordButton.pack(padx=2, pady=3, ipady=5)
 
+        self.convertButton = tk.Button(self.commandFrame,
+                                       bg="gray80",
+                                       command=self.OnToMPGCallBack,
+                                       font=sFont,
+                                       width="14")
+        self.convertButton.pack(padx=2, pady=3)
+
         self.clearButton = tk.Button(self.commandFrame,
                                      command=self.OnClearAllCallBack,
                                      font=sFont,
                                      bg="yellow",
                                      activebackground="light yellow",
                                      width="14")
-        self.clearButton.pack(padx=2, ipady=4,pady=5)
+        self.clearButton.pack(padx=2, pady=3)
 
         self.optionButton = tk.Button(self.commandFrame,
                                       bg="gray80",
                                       command=self.OnOptionCallBack,
                                       font=sFont,
                                       width="14")
-        self.optionButton.pack(padx=2, ipady=4,pady=5)
-
+        self.optionButton.pack(padx=2, pady=3)
 
         self.blanktext = tk.Text(self.commandFrame,
                                  width=25,
-                                 height=6,
+                                 height=4,
                                  highlightthickness=0,
                                  borderwidth=0,
                                  bg=self.commandFrame["background"])
@@ -247,14 +244,11 @@ class App():
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.viewWidth)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.viewHeight)
         self.camera.set(cv2.CAP_PROP_FPS, 10)
-        self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
-        self.camera.set(cv2.CAP_PROP_CONTRAST, 0.5)
+        self.camera.set(cv2.CAP_PROP_BRIGHTNESS, self.cameraBrightness/100)
+        self.camera.set(cv2.CAP_PROP_CONTRAST, (self.cameraContrast + 100)/200)
 
-        #print("original Brightness", self.camera.get(cv2.CAP_PROP_BRIGHTNESS))
-        #print("original Contrast", self.camera.get(cv2.CAP_PROP_CONTRAST))
-        #print("set Brightness", self.camera.get(cv2.CAP_PROP_BRIGHTNESS))
-        #print("set Contrast", self.camera.get(cv2.CAP_PROP_CONTRAST))
-
+        print("Brightness", self.camera.get(cv2.CAP_PROP_BRIGHTNESS))
+        print("Contrast", self.camera.get(cv2.CAP_PROP_CONTRAST))
 
     def closeCameraStream(self):
         self.camera.release()
@@ -275,6 +269,7 @@ class App():
             value = "disabled"
         self.forwardButton["state"] = value
         self.recordButton["state"] = value
+        self.convertButton["state"] = value
         self.clearButton["state"] = value
         self.optionButton["state"] = value
 
@@ -284,6 +279,7 @@ class App():
         self.stopButton["text"] = self.lg.getText("STOP BUTTON")
         self.forwardButton["text"] = self.lg.getText("FWD BUTTON")
         self.recordButton["text"] = self.lg.getText("START BUTTON")
+        self.convertButton["text"] = self.lg.getText("MPG BUTTON")
         self.clearButton["text"] = self.lg.getText("CLR BUTTON")
         self.optionButton["text"] = self.lg.getText("OPTION BUTTON")
         self.refreshCaptureFlagLabel()
@@ -315,6 +311,9 @@ class App():
         self.photoLabel["text"] = str(self.arduino.frameCount)
         string = "rm {}*".format(self.imagePath)
         os.system(string)
+
+    def OnToMPGCallBack(self):
+        pass
 
     def OnOptionCallBack(self):
         optionDialog = optionMenu(self)
@@ -394,36 +393,43 @@ class App():
         return blank_HDimage
 
     def storeImage(self):
-        if self.saveRawImages:
-            fileName = self.imagePath + "raw_"
-            fileName = fileName + self.imagePrefix
-            fileName = fileName + "{:05d}".format(self.arduino.frameCount)
-            fileName = fileName + ".jpg"
-            cv2.imwrite(fileName, self.storedImage)
+        print("in storeImageThread")
+        fileName = self.imagePath + "raw_"
+        fileName = fileName + self.imagePrefix
+        fileName = fileName + "{:05d}".format(self.arduino.frameCount)
+        fileName = fileName + ".jpg"
+        cv2.imwrite(fileName, self.storedImage)
 
         # resize image to HD
         HD_image = self.resizeImageToHD(self.storedImage)
 
         # let's save image
-        if self.saveImages:
-            fileName = self.imagePath + self.imagePrefix+"{:05d}".format(
-                       self.arduino.frameCount) + ".jpg"
-            cv2.imwrite(fileName, HD_image)
+        fileName = self.imagePath + self.imagePrefix+"{:05d}".format(
+                   self.arduino.frameCount) + ".jpg"
+        print("filename-", fileName)
 
-        height, width, layers = HD_image.shape
+        cv2.imwrite(fileName, HD_image)
 
-        if not self.videoFlag:
-            self.videoFlag=True
-            self.videoCount= self.videoCount + 1
-            videoName= self.videoPath+self.videoPrefix+str(self.videoCount)
-            videoName= videoName + ".mp4"
-            print("create",videoName)
-            self.videoOut = cv2.VideoWriter(videoName,
-                                            cv2.VideoWriter_fourcc(*'MP4V'),
-                                            self.filmRate, (width,height))
-            self.videoOut.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
-        print("write video Frame:",self.arduino.frameCount)
-        self.videoOut.write(HD_image)
+        if self.fifoFile is None:
+            print("openFifo")
+            self.fifoFile=open(self.fifoFileName,"wb")
+        imageInfo="file '{}'\n\x00".format(fileName)
+        #self.fifoFile.write(bytearray(imageInfo,"utf-8"))
+        #test = open("t.dat","wb")
+        #test.write(HD_image.tobytes())
+        #test.close()
+        fread=open(fileName,"rb");
+        block=fread.read()
+        fread.close()
+        #self.fifoFile.write(HD_image.tobytes())
+        self.fifoFile.write(block)
+        self.fifoFile.flush()
+
+
+self._name = name + '.mp4'
+self._cap = VideoCapture(0)
+self._fourcc = VideoWriter_fourcc(*'MP4V')
+self._out = VideoWriter(self._name, self._fourcc, 20.0, (640,480))
 
         if self.captureFlag:
             self.root.after(100, self.moveToNextFrame)
@@ -440,50 +446,42 @@ class App():
                     if self.camera is not None:
                         self.closeCameraStream()
                     frame = None
-                    with picamera.PiCamera() as piCam:
-                        piCam.resolution = (self.camWidth, self.camHeight)
-                        piCam.framerate =  10
-                        piCam.brightness = self.cameraBrightness
-                        piCam.contrast = self.cameraContrast
-
-                        with picamera.array.PiRGBArray(piCam) as output:
-                            piCam.capture(output, 'rgb')
+                    with picamera.PiCamera() as camera:
+                        camera.resolution = (self.camWidth, self.camHeight)
+                        camera.framerate = 10
+                        camera.brightness = self.cameraBrightness
+                        camera.contrast = self.cameraContrast
+                        with picamera.array.PiRGBArray(camera) as output:
+                            camera.capture(output, 'rgb')
                             frame = output.array
-                        piCam.close()
+                        camera.close()
                     if frame is None:
                         continue
-
-                    if PiRotate:
-                        frame = cv2.rotate(frame, cv2.ROTATE_180)
-                    if PiFlip:
-                        frame = cv2.flip(frame, 0)
-
+                    frame = cv2.rotate(frame, cv2.ROTATE_180)
                     self.storedImage = copy.deepcopy(frame)
                     self.storedImage = cv2.cvtColor(self.storedImage,
                                                     cv2.COLOR_BGR2RGB)
                     self.requestImage = False
                     self.root.after(1, self.storeImage)
-                    #continue
+                    continue
                 else:
                     if not self.captureFlag:
                         if self.camera is None:
                             self.openCameraStream()
                         # ok not capturing anymore
-                        # close  video
-                        if self.videoFlag:
-                            self.videoFlag=False
-                            self.videoOut.release()
-                            print("close video1")
+                        # close fifo
+                        if self.fifoFile is not None:
+                            self.fifoFile.close()
+                            self.fifoFile=None
+                            print("close fifo")
+
 
                         valid, frame = self.camera.read()
                         if valid is False:
                             continue
                         # put capture frame rectangle
                         # convert from view to capture size
-                        if PiRotate:
-                            frame = cv2.rotate(frame, cv2.ROTATE_180)
-                        if PiFlip:
-                            frame = cv2.flip(frame, 0)
+                        frame = cv2.rotate(frame, cv2.ROTATE_180)
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     else:
                         time.sleep(0.05)
@@ -500,6 +498,7 @@ class App():
                 cv2.rectangle(smallFrame, P1, P2,
                               (0, 0, 255),
                               thickness=2)
+
                 # OpenCV represents images in BGR order; however PIL
                 # represents images in RGB order, so we need to swap
                 # the channels, then convert to PIL and ImageTk format
@@ -549,10 +548,7 @@ class App():
                     self.cameraContrast = int(info[1])
                 elif info[0] == "brightness":
                     self.cameraBrightness = int(info[1])
-                elif info[0] == "images":
-                    self.saveImages  =  info[1].upper() in  ['TRUE', '1']
-                elif info[0] == "rawImages":
-                    self.saveRawImages  =  info[1].upper() in  ['TRUE', '1']
+
         file.close()
 
     def saveConfig(self):
@@ -569,9 +565,6 @@ class App():
         file.write("[Camera]\n")
         file.write("brightness={}\n".format(self.cameraBrightness))
         file.write("contrast={}\n".format(self.cameraContrast))
-        file.write("[Output]\n")
-        file.write("images={}\n".format(str(self.saveImages).upper()))
-        file.write("rawImages={}\n".format(str(self.saveRawImages).upper()))
         file.close()
 
     def mainloop(self):

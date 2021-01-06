@@ -60,6 +60,8 @@ class optionMenu:
         configFont = tkFont.Font(root=self.configFrame,
                                  family="Courier", size=14)
 
+        sFont = tkFont.Font(root=self.configFrame, family="Courier", size=18)
+
         # language box
         self.languageLabelFrame = tk.LabelFrame(self.configFrame,
                                                 font=configFont)
@@ -156,14 +158,14 @@ class optionMenu:
         self.configButtonLoad = tk.Button(configButtonFrame,
                                           command=self.OnLoadConfig,
                                           width="9",
-                                          height="2",
-                                          font=configFont)
+                                          height="1",
+                                          font=sFont)
 
         self.configButtonSave = tk.Button(configButtonFrame,
                                           command=self.OnSaveConfig,
                                           width="9",
-                                          height="2",
-                                          font=configFont)
+                                          height="1",
+                                          font=sFont)
 
         self.configButtonLoad.pack(side=tk.LEFT, padx=2)
         self.configButtonSave.pack(side=tk.RIGHT, padx=2)
@@ -275,25 +277,57 @@ class optionMenu:
         self.optionFrame = tk.Frame(self.top)
         self.optionFrame.pack(side=tk.RIGHT, padx=10)
 
-        sFont = tkFont.Font(root=self.optionFrame, family="Courier", size=18)
+        #sFont = tkFont.Font(root=self.optionFrame, family="Courier", size=18)
+
+        # save images
+
+        self.saveLabel =  tk.LabelFrame(self.optionFrame,
+                          width=230, height= 100,
+                          font=configFont)
+        self.saveImages = tk.IntVar(value=self.parent.saveImages)
+        self.saveImagesCheck = tk.Checkbutton(self.saveLabel,
+                                              variable=self.saveImages,
+                                              font=configFont)
+        self.saveImagesCheck.pack(side=tk.TOP,anchor = "nw")
+        self.saveRawImages = tk.IntVar(value=self.parent.saveRawImages)
+        self.saveRawImagesCheck = tk.Checkbutton(self.saveLabel,
+                                              variable=self.saveRawImages,
+                                              font=configFont)
+        self.saveRawImagesCheck.pack(side=tk.TOP,anchor = "nw")
+
+        self.saveLabel.pack(side=tk.TOP, anchor ="n")
+        self.saveLabel.pack_propagate(0)
+
+        blanktext = tk.Text(self.optionFrame,
+                                 height=1,
+                                 highlightthickness=0,
+                                 borderwidth=0,
+                                 bg=self.top["background"])
+        blanktext.pack(side=tk.TOP)
+
+
+        # buttons
+
+
 
         self.toggleLightButton = tk.Button(self.optionFrame,
                                            command=self.OnLightCallBack,
                                            font=sFont,
-                                           width=15)
+                                           width=22)
 
         self.exitButton = tk.Button(self.optionFrame,
                                     command=self.OnExitCallBack,
                                     font=sFont,
-                                    width=15)
+                                    width=22)
 
         self.previousButton = tk.Button(self.optionFrame,
                                         command=self.OnPreviousCallBack,
                                         font=sFont,
-                                        width=15)
-        self.toggleLightButton.pack(pady=10, padx=20)
-        self.exitButton.pack(pady=10, padx=20)
-        self.previousButton.pack(pady=10, padx=20)
+                                        width=22)
+
+        self.toggleLightButton.pack(pady=12, padx=2)
+        self.exitButton.pack(pady=12,padx=2)
+        self.previousButton.pack(pady=12, padx=2)
         self.refreshLanguage()
 
     def languageBoxEvent(self, event):
@@ -320,6 +354,9 @@ class optionMenu:
         self.previousButton['text'] = self.lg.getText("PREVIOUS BUTTON")
         self.brightnessLabelFrame['text'] = self.lg.getText("Brightness")
         self.contrastLabelFrame['text'] = self.lg.getText("Contrast")
+        self.saveLabel['text'] = self.lg.getText("save label")
+        self.saveRawImagesCheck['text'] = self.lg.getText("save images")
+        self.saveImagesCheck['text'] = self.lg.getText("save raw images")
 
     def OnLoadConfig(self):
         self.parent.loadConfig()
@@ -331,6 +368,8 @@ class optionMenu:
         self.resolution.set(int(self.parent.filmResolution))
         self.brightness.set(int(self.parent.cameraBrightness))
         self.contrast.set(int(self.parent.cameraContrast))
+        self.saveRawImages.set(int(self.parent.saveRawImages))
+        self.saveImages.set(int(self.parent.saveImages))
 
     def OnSaveConfig(self):
         self.parent.imageTop = self.TopVar.get()
@@ -341,6 +380,8 @@ class optionMenu:
         self.parent.filmResolution = self.resolution.get()
         self.parent.cameraBrightness = self.brightness.get()
         self.parent.cameraContrast = self.contrast.get()
+        self.parent.saveImages = self.saveImages.get()==1
+        self.parent.saveRawImages = self.saveRawImages.get()==1
         self.parent.saveConfig()
 
     def OnLightCallBack(self):
@@ -359,6 +400,8 @@ class optionMenu:
         self.parent.filmResolution = self.resolution.get()
         self.parent.cameraBrightness = self.brightness.get()
         self.parent.cameraContrast = self.contrast.get()
+        self.parent.saveImages = self.saveImages.get()==1
+        self.parent.saveRawImages = self.saveRawImages.get()==1
         self.top.destroy()
 
     def center(self, toplevel):

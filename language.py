@@ -65,7 +65,11 @@ class Language:
                 "film Rate": "Cadence (Image/sec)",
                 "Resolution": "Résolution",
                 "Brightness": "Brillance",
-                "Contrast": "Contraste"
+                "Contrast": "Contraste",
+                "focus index": "focus index",
+                "save label": "Enregistrement",
+                "save images": "Images",
+                "save raw images": "Images brut"
                 }
 
             self.EnglishLanguage = {
@@ -94,7 +98,12 @@ class Language:
                 "film Rate": "Rate (Frame/sec)",
                 "Resolution": "Resolution",
                 "Brightness": "Brightness",
-                "Contrast": "Contrast"
+                "Contrast": "Contrast",
+                "focus index": "focus index",
+                "save label": "Save",
+                "save images": "Images",
+                "save raw images": "Raw Images"
+
                 }
             self.language = {
                 Languages.French.value: self.FrenchLanguage,
