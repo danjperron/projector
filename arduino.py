@@ -20,11 +20,11 @@ be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
 HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 '''
 
@@ -43,7 +43,7 @@ OTHER DEALINGS IN THE SOFTWARE
   Each command will respond with status in numeric ascii form.
   All values are separated by a tab.
   values in order,
-    lightFlag -> 0=Light OFF  1=Light ON    
+    lightFlag -> 0=Light OFF  1=Light ON
     motorFlag -> 0=Motor is not moving  1= motor is moving
     frameCount -> frame count
     cposition  -> current Stepper position
@@ -53,13 +53,17 @@ OTHER DEALINGS IN THE SOFTWARE
 class Arduino:
 
     def __init__(self, port="/dev/ttyACM0"):
-        self.com = serial.Serial(port=port, baudrate=9600, timeout=1)
-        self.com.flush()
+        try:
+            self.com = serial.Serial(port=port, baudrate=9600, timeout=1)
+        except serial.serialutil.SerialException:
+            self.com = None
+
+        self.flush()
         time.sleep(0.1)
         self.lightValue = False
         self.frameCount = 0
-        Flag, lightFlag, motorFlag,\
-        frameCount, stepperPosition = self.getStatus()
+        Flag, lightFlag, motorFlag, \
+            frameCount, stepperPosition = self.getStatus()
         if Flag:
             self.frameCount = frameCount
             self.lightValue = lightFlag
@@ -82,60 +86,69 @@ class Arduino:
     def close(self):
         if self.com is None:
             return
-        self.com.flush()
+        self.flush()
         self.com.close()
 
     def readStatus(self):
-        rawline = self.com.readline()
-        line = rawline.decode("utf-8").split("\r")[0]
         Flag = False
         lightFlag = False
         motorFlag = False
         frameCount = 0
         stepperPosition = 0
-        if len(line) > 0:
-            data = line.split("\t")
-            if len(data) == 4:
-                Flag = True
-                lightFlag = bool(int(data[0]))
-                motorFlag = bool(int(data[1]))
-                frameCount = int(data[2])
-                stepperPosition = int(data[3])
+        if self.com is not None:
+            rawline = self.com.readline()
+            line = rawline.decode("utf-8").split("\r")[0]
+            if len(line) > 0:
+                data = line.split("\t")
+                if len(data) == 4:
+                    Flag = True
+                    lightFlag = bool(int(data[0]))
+                    motorFlag = bool(int(data[1]))
+                    frameCount = int(data[2])
+                    stepperPosition = int(data[3])
         return Flag, lightFlag, motorFlag, frameCount, stepperPosition
 
+    def write(self, data):
+        if self.com is not None:
+            self.com.write(data)
+
+    def flush(self):
+        if self.com is not None:
+            self.com.flush()
+
     def getStatus(self):
-        self.com.write(b"I")
+        self.write(b"I")
         return self.readStatus()
 
     def clrStatus(self):
-        Flag, lightFlag, motorFlag,\
-        frameCount, stepperPosition = self.readStatus()
-        self.com.flush()
+        Flag, lightFlag, motorFlag, \
+            frameCount, stepperPosition = self.readStatus()
+        if self.com is not None:
+            self.flush()
 
     def clrFrame(self):
-        self.com.write(b"C")
+        self.write(b"C")
         self.frameCount = 0
         self.clrStatus()
 
     def stop(self):
-        self.com.write(b"S")
+        self.write(b"S")
         self.clrStatus()
 
     def next(self):
         startTime = time.time()
-        self.com.write(b"N")
+        self.write(b"N")
         # ok wait until 5 second before exit with error
         while (time.time()-startTime) < 3.0:
-            Flag, lightFlag, motorFlag,\
-            frameCount, stepperPosition = self.readStatus()
+            Flag, lightFlag, motorFlag, \
+                frameCount, stepperPosition = self.readStatus()
             if Flag:
                 if motorFlag == 0:
                     self.frameCount = frameCount
                     return True
-            self.com.flush()
+            self.flush()
             time.sleep(0.2)
-            self.com.write(b"I")
+            self.write(b"I")
         time.sleep(0.2)
-        self.com.flush()
+        self.flush()
         return False
-

@@ -14,9 +14,15 @@ from optionMenu import optionMenu
 from language import Language
 from arduino import Arduino
 import copy
-import picamera
-import picamera.array
 import cv2
+
+cameraEnable = True
+
+try:
+    import picamera
+    import picamera.array
+except OSError:
+    cameraEnable = False
 
 
 '''
@@ -61,27 +67,42 @@ PiCam_auto = (0, 0)
 # need to rotate 180 degree
 PiRotate = False
 # need to flip image
-PiFlip= True
+PiFlip = True
+
+logGLFlag = True
+
 
 class App():
 
     def __init__(self, camDevice="/dev/video0",
                  camResolution=PiCam_auto,
                  serialPort="/dev/ttyACM0"):
+        global cameraEnable
         # Language Class currently only French and English
         self.lg = Language()
 
-        self.videoFlag=False
-        self.videoOut=None
-        # if resolution is 0 then auto check
-        if camResolution[0] == 0:
-            cam = picamera.camera.PiCamera()
-            self.camWidth = cam.MAX_RESOLUTION[0]
-            self.camHeight = cam.MAX_RESOLUTION[1]
-            cam.close()
-        else:
-            self.camWidth = camResolution[0]
-            self.camHeight = camResolution[1]
+        self.videoFlag = False
+        self.vidOut = None
+        self.logGL = None
+        self.camWidth = PiCam_HQ[0]
+        self.camHeight = PiCam_HQ[1]
+
+        if cameraEnable:
+            # if resolution is 0 then auto check
+            try:
+                if camResolution[0] == 0:
+                    cam = picamera.camera.PiCamera()
+                    self.camWidth = cam.MAX_RESOLUTION[0]
+                    self.camHeight = cam.MAX_RESOLUTION[1]
+                    cam.close()
+                else:
+                    self.camWidth = camResolution[0]
+                    self.camHeight = camResolution[1]
+            except picamera.exc.PiCameraMMALError:
+                cameraEnable = False
+            except picamera.exc.PiCameraError:
+                cameraEnable = False
+
         self.camDevice = camDevice
 
         # output Flag
@@ -92,14 +113,25 @@ class App():
         self.cameraBrightness = 50
         self.cameraContrast = 0
 
-        # film rate per second
-        self.filmRate = 24
-        self.filmResolution = 1080
+        # frame light intensity
+        self.GlValue = 0
+        self.GlValuePercent = 0
+
+        # film info
+        self.film_super8 = 0
+        self.film_8mm = 1
+        self.filmType = self.film_super8
+
+        self.filmRate = 18
+        self.filmResolution = 720
+        self.totalImages = 140000
+        self.skipThreshold = 0
 
         # actual frame inside picture to store
-
-        self.viewWidth = 640
-        self.viewHeight = 480
+        # self.viewWidth = 640
+        # self.viewHeight = 480
+        self.viewWidth = 1024
+        self.viewHeight = 768
         self.settingConfiguration = "settings.conf"
         self.imageTop = 0
         self.imageLeft = 0
@@ -108,13 +140,15 @@ class App():
         self.loadConfig()
 
         # default image path
-        self.imagePath = "/home/pi/images/"
+        self.imagePath = "/mnt/video/images/"
         self.imagePrefix = "img_"
         self.videoPath = "/mnt/video/"
         self.videoPrefix = "video_"
-        self.videoCount= 0
+        self.videoCount = 0
+
         # arduino object
         self.arduino = Arduino(port=serialPort)
+
         # turn light on
         self.arduino.light(True)
         # just to be sure
@@ -138,8 +172,8 @@ class App():
 
         # image frame
         self.imageFrame = tk.Frame(self.root,
-                                   width=600,
-                                   height=480,
+                                   width=self.viewWidth,
+                                   height=self.viewHeight,
                                    bg='black')
         self.imageFrame.pack_propagate(0)
         self.imageFrame.pack(side=tk.LEFT,
@@ -161,33 +195,10 @@ class App():
         self.topInfo = tk.Frame(self.rightPanel)
         self.topInfo.pack(side=tk.TOP)
 
-        # no text=""
-        # all text are made using the refreshLanguage() function
-
-
-        self.photoLabelFrame = tk.LabelFrame(self.topInfo,
-                                             width="25")
-        mFont = tkFont.Font(root=self.photoLabelFrame, family="Courier", size=12)
-
-        self.photoLabel = tk.Label(self.photoLabelFrame,
-                                   text=str(self.arduino.frameCount),
-                                   font=mFont,
-                                   width="18")
-        self.photoLabelFrame.pack(pady=4)
-        self.photoLabel.pack()
-        self.captureFlagFrame = tk.Frame(self.rightPanel)
-        self.captureFlagFrame.pack(side=tk.TOP)
-
-        self.captureFlagLabel = tk.Label(self.captureFlagFrame,
-                                         width="20",
-                                         height="2",
-                                         borderwidth=2,
-                                         relief="solid",
-                                         bg=self.captureFlagFrame[
-                                            "background"])
-
-        self.captureFlagLabel.pack(side=tk.RIGHT, ipadx=1, padx=2,pady=8)
-        self.refreshCaptureFlagLabel()
+        # my photo count widget
+        self.myWidgetPhotoCount(self.topInfo)
+        # my capture status widget
+        self.myWidgetStatus(self.topInfo)
 
         # create command frame
         self.commandFrame = tk.Frame(self.rightPanel)
@@ -199,7 +210,7 @@ class App():
                                        command=self.OnFwdCallBack,
                                        font=sFont,
                                        width="14")
-        self.forwardButton.pack(padx=2, ipady=4,pady=5)
+        self.forwardButton.pack(padx=2, ipady=4, pady=5)
 
         self.stopButton = tk.Button(self.commandFrame,
                                     command=self.OnStopCallBack,
@@ -223,24 +234,64 @@ class App():
                                      bg="yellow",
                                      activebackground="light yellow",
                                      width="14")
-        self.clearButton.pack(padx=2, ipady=4,pady=5)
+        self.clearButton.pack(padx=2, ipady=4, pady=5)
 
         self.optionButton = tk.Button(self.commandFrame,
                                       bg="gray80",
                                       command=self.OnOptionCallBack,
                                       font=sFont,
                                       width="14")
-        self.optionButton.pack(padx=2, ipady=4,pady=5)
+        self.optionButton.pack(padx=2, ipady=4, pady=5)
 
-
-        self.blanktext = tk.Text(self.commandFrame,
-                                 width=25,
-                                 height=6,
-                                 highlightthickness=0,
-                                 borderwidth=0,
-                                 bg=self.commandFrame["background"])
-        self.blanktext.pack()
+        # my widget error stat
+        self.myWidgetErrorStatus()
         self.refreshLanguage()
+
+    def myWidgetPhotoCount(self, parentFrame):
+        self.photoLabelFrame = tk.LabelFrame(self.topInfo)
+        mFont = tkFont.Font(self.photoLabelFrame, family="Courier", size=12)
+
+        self.photoLabel = tk.Label(self.photoLabelFrame,
+                                   font=mFont,
+                                   width="16")
+        self.refreshFrameCount()
+        self.photoLabelFrame.pack(pady=4)
+        self.photoLabel.pack()
+
+    def myWidgetStatus(self, parentFrame):
+        self.captureFlagFrame = tk.Frame(parentFrame)
+        self.captureFlagFrame.pack(side=tk.TOP)
+
+        self.captureFlagLabel = tk.Label(self.captureFlagFrame,
+                                         width="20",
+                                         height="2",
+                                         borderwidth=2,
+                                         relief="solid",
+                                         bg=self.captureFlagFrame[
+                                            "background"])
+        self.captureFlagLabel.pack(side=tk.RIGHT, ipadx=1, pady=8)
+        self.refreshCaptureFlagLabel()
+
+    def myWidgetErrorStatus(self):
+        cameraError = tk.Label(self.rightPanel,
+                               width=25,
+                               height=1,
+                               highlightthickness=0,
+                               borderwidth=0,
+                               bg=self.rightPanel["background"])
+        arduinoError = tk.Label(self.rightPanel,
+                                width=25,
+                                height=1,
+                                highlightthickness=0,
+                                borderwidth=0,
+                                bg=self.rightPanel["background"])
+        cameraError.pack(side=tk.TOP)
+        arduinoError.pack(side=tk.TOP)
+
+        if not cameraEnable:
+            cameraError["text"] = self.lg.getText("camera error")
+        if self.arduino.com is None:
+            arduinoError["text"] = self.lg.getText("arduino error")
 
     def openCameraStream(self):
         self.camera = cv2.VideoCapture(0)
@@ -250,15 +301,10 @@ class App():
         self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
         self.camera.set(cv2.CAP_PROP_CONTRAST, 0.5)
 
-        #print("original Brightness", self.camera.get(cv2.CAP_PROP_BRIGHTNESS))
-        #print("original Contrast", self.camera.get(cv2.CAP_PROP_CONTRAST))
-        #print("set Brightness", self.camera.get(cv2.CAP_PROP_BRIGHTNESS))
-        #print("set Contrast", self.camera.get(cv2.CAP_PROP_CONTRAST))
-
-
     def closeCameraStream(self):
-        self.camera.release()
-        self.camera = None
+        if self.camera is not None:
+            self.camera.release()
+            self.camera = None
 
     def refreshCaptureFlagLabel(self):
         if self.captureFlag:
@@ -299,7 +345,7 @@ class App():
     def OnFwdCallBack(self):
         self.enableButtons(False)
         self.arduino.next()
-        self.photoLabel["text"] = str(self.arduino.frameCount)
+        self.refreshFrameCount()
         self.enableButtons(True)
         pass
 
@@ -312,15 +358,18 @@ class App():
 
     def OnClearAllCallBack(self):
         self.arduino.clrFrame()
-        self.photoLabel["text"] = str(self.arduino.frameCount)
+        self.refreshFrameCount()
         string = "rm {}*".format(self.imagePath)
         os.system(string)
 
     def OnOptionCallBack(self):
+        self.enableButtons(False)
+        self.stopButton['state'] = tk.DISABLED
         optionDialog = optionMenu(self)
         self.stopEvent.set()
         time.sleep(0.05)
         self.root.wait_window(optionDialog.top)
+        self.root.deiconify()
         if optionDialog.ExitFlag:
             self.arduino.light(False)
             self.arduino.light(False)
@@ -331,11 +380,14 @@ class App():
             self.stopEvent.clear()
             self.camThread = threading.Thread(target=self.videoLoop, args=())
             self.camThread.start()
+            self.enableButtons(True)
+            self.stopButton['state'] = tk.NORMAL
+            self.refreshFrameCount()
 
     def moveToNextFrame(self):
         print("move next frame")
         self.arduino.next()
-        self.photoLabel["text"] = str(self.arduino.frameCount)
+        self.refreshFrameCount()
         if self.captureFlag:
             self.root.after(100, self.captureImage)
         else:
@@ -380,6 +432,10 @@ class App():
             HD_Frame = imutils.resize(cut_image, height=V)
         else:
             HD_Frame = imutils.resize(cut_image, width=H)
+
+        # get the gray level of the image frame
+        self.getGL(HD_Frame)
+
         dy, dx, depth = HD_Frame.shape
         borderV = (V - dy)//2
         borderH = (H - dx)//2
@@ -393,6 +449,16 @@ class App():
         print("resize Done")
         return blank_HDimage
 
+    def getGL(self, Frame):
+        H, W, D = Frame.shape
+        self.GlValue = Frame.sum()/(H * W * D)
+        self.GlValuePercent = self.GlValue/2.55
+
+    def refreshFrameCount(self):
+        text = "{:5d} / {}".format(self.arduino.frameCount, self.totalImages)
+        text = text + "\n{}% GL".format(int(self.GlValuePercent))
+        self.photoLabel['text'] = text
+
     def storeImage(self):
         if self.saveRawImages:
             fileName = self.imagePath + "raw_"
@@ -404,34 +470,58 @@ class App():
         # resize image to HD
         HD_image = self.resizeImageToHD(self.storedImage)
 
-        # let's save image
-        if self.saveImages:
-            fileName = self.imagePath + self.imagePrefix+"{:05d}".format(
-                       self.arduino.frameCount) + ".jpg"
-            cv2.imwrite(fileName, HD_image)
+        # if GL value in % is lower than threshold skip it
+        lowThreshold = self.GlValuePercent < self.skipThreshold
+        if not lowThreshold:
+            # let's save image
+            if self.saveImages:
+                fileName = self.imagePath + self.imagePrefix+"{:05d}".format(
+                           self.arduino.frameCount) + ".jpg"
+                cv2.imwrite(fileName, HD_image)
 
-        height, width, layers = HD_image.shape
+            height, width, layers = HD_image.shape
 
-        if not self.videoFlag:
-            self.videoFlag=True
-            self.videoCount= self.videoCount + 1
-            videoName= self.videoPath+self.videoPrefix+str(self.videoCount)
-            videoName= videoName + ".mp4"
-            print("create",videoName)
-            self.videoOut = cv2.VideoWriter(videoName,
-                                            cv2.VideoWriter_fourcc(*'MP4V'),
-                                            self.filmRate, (width,height))
-            self.videoOut.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
-        print("write video Frame:",self.arduino.frameCount)
-        self.videoOut.write(HD_image)
+            if not self.videoFlag:
+                self.videoFlag = True
+                # ok figure out which is the empty video count
+                while True:
+                    self.videoCount = self.videoCount + 1
+                    videoName = self.videoPath + self.videoPrefix
+                    videoName = videoName + str(self.videoCount)
+                    videoName = videoName + ".mp4"
+                    if not os.path.exists(videoName):
+                        break
+                print("create", videoName)
+                self.vidOut = cv2.VideoWriter(videoName,
+                                              cv2.VideoWriter_fourcc(*'MP4V'),
+                                              self.filmRate, (width, height))
+                self.vidOut.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
+            print("write video Frame:", self.arduino.frameCount)
+            self.vidOut.write(HD_image)
 
+        if logGLFlag:
+            if self.logGL is None:
+                logGLName = self.videoPath+"logGL_"+str(self.videoCount)
+                logGLName = logGLName + ".txt"
+                self.logGL = open(logGLName, "wt")
+            self.logGL.write("{:5d}\t{}\t{}\n".format(self.arduino.frameCount,
+                                                      int(self.GlValuePercent),
+                                                      lowThreshold))
+            self.logGL.flush()
         if self.captureFlag:
-            self.root.after(100, self.moveToNextFrame)
+            if self.arduino.frameCount >= self.totalImages:
+                self.captureFlag = False
+                self.enableButtons(True)
+                self.arduino.light(False)
+            else:
+                self.root.after(100, self.moveToNextFrame)
         else:
             self.enableButtons(True)
         self.refreshCaptureFlagLabel()
 
     def videoLoop(self):
+        if not cameraEnable:
+            return
         self.openCameraStream()
         try:
             while not self.stopEvent.is_set():
@@ -442,7 +532,7 @@ class App():
                     frame = None
                     with picamera.PiCamera() as piCam:
                         piCam.resolution = (self.camWidth, self.camHeight)
-                        piCam.framerate =  10
+                        piCam.framerate = 10
                         piCam.brightness = self.cameraBrightness
                         piCam.contrast = self.cameraContrast
 
@@ -463,7 +553,6 @@ class App():
                                                     cv2.COLOR_BGR2RGB)
                     self.requestImage = False
                     self.root.after(1, self.storeImage)
-                    #continue
                 else:
                     if not self.captureFlag:
                         if self.camera is None:
@@ -471,9 +560,13 @@ class App():
                         # ok not capturing anymore
                         # close  video
                         if self.videoFlag:
-                            self.videoFlag=False
-                            self.videoOut.release()
+                            self.videoFlag = False
+                            self.vidOut.release()
                             print("close video1")
+
+                        if self.logGL is not None:
+                            self.logGL.close()
+                            self.logGL = None
 
                         valid, frame = self.camera.read()
                         if valid is False:
@@ -489,13 +582,15 @@ class App():
                         time.sleep(0.05)
                         continue
 
-                xratio = (600 / 640) * self.viewWidth / self.camWidth
-                yratio = (600 / 640) * self.viewHeight / self.camHeight
+#                xratio = (600 / 640) * self.viewWidth / self.camWidth
+#                yratio = (600 / 640) * self.viewHeight / self.camHeight
+                xratio = self.viewWidth / self.camWidth
+                yratio = self.viewHeight / self.camHeight
                 P1 = (int(self.imageLeft * xratio + 0.5),
                       int(self.imageTop * yratio + 0.5))
                 P2 = (int(self.imageRight * xratio + 0.5),
                       int(self.imageBottom * yratio + 0.5))
-                smallFrame = imutils.resize(frame, width=600)
+                smallFrame = imutils.resize(frame, width=self.viewWidth)
 
                 cv2.rectangle(smallFrame, P1, P2,
                               (0, 0, 255),
@@ -543,16 +638,22 @@ class App():
                     self.lg.setLanguage(info[1])
                 elif info[0] == "rate":
                     self.filmRate = int(info[1])
+                elif info[0] == "total images":
+                    self.totalImages = int(info[1])
+                elif info[0] == "film type":
+                    self.filmType = int(info[1])
                 elif info[0] == "resolution":
                     self.filmResolution = int(info[1])
                 elif info[0] == "contrast":
                     self.cameraContrast = int(info[1])
                 elif info[0] == "brightness":
                     self.cameraBrightness = int(info[1])
+                elif info[0] == "threshold":
+                    self.skipThreshold = int(info[1])
                 elif info[0] == "images":
-                    self.saveImages  =  info[1].upper() in  ['TRUE', '1']
+                    self.saveImages = info[1].upper() in ['TRUE', '1']
                 elif info[0] == "rawImages":
-                    self.saveRawImages  =  info[1].upper() in  ['TRUE', '1']
+                    self.saveRawImages = info[1].upper() in ['TRUE', '1']
         file.close()
 
     def saveConfig(self):
@@ -564,6 +665,9 @@ class App():
         file.write("right={}\n".format(self.imageRight))
         file.write("rate={}\n".format(self.filmRate))
         file.write("resolution={}\n".format(self.filmResolution))
+        file.write("total images={}\n".format(self.totalImages))
+        file.write("film type={}\n".format(self.filmType))
+        file.write("threshold={}\n".format(self.skipThreshold))
         file.write("[Config]\n")
         file.write("language={}\n".format(self.lg.getLanguage()))
         file.write("[Camera]\n")
@@ -579,4 +683,3 @@ class App():
 
 app = App()
 app.mainloop()
-

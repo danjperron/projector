@@ -159,9 +159,9 @@ void loop()
          frameCount++;
        }
      if(cposition>MIN_STEP_CHECK)
-        if(new_v ==1)  
+        if(new_v ==0)  
         {
-          if(cposition <POST_STEP)
+          //if(cposition <POST_STEP)
            {
              stepper1.setCurrentPosition(POST_STEP);
            } 

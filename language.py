@@ -20,11 +20,11 @@ be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
 HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 '''
 
@@ -69,7 +69,13 @@ class Language:
                 "focus index": "focus index",
                 "save label": "Enregistrement",
                 "save images": "Images",
-                "save raw images": "Images brut"
+                "save raw images": "Images brut",
+                "film length":  "Longueur du film",
+                "images length": "#\nimages",
+                "camera error": "Camera erreur !!!",
+                "arduino error": "Arduino erreur !!!",
+                "skip image": "Saute Image sombre",
+                "threshold percent": "seuil (%)"
                 }
 
             self.EnglishLanguage = {
@@ -102,8 +108,13 @@ class Language:
                 "focus index": "focus index",
                 "save label": "Save",
                 "save images": "Images",
-                "save raw images": "Raw Images"
-
+                "save raw images": "Raw Images",
+                "film length": "Film Length",
+                "images length": "# of\nFrames",
+                "camera error": "Camera error !!!",
+                "arduino error": "Arduino error !!!",
+                "skip image": "Skip dark image",
+                "threshold percent": "Threshold (%)"
                 }
             self.language = {
                 Languages.French.value: self.FrenchLanguage,
@@ -136,4 +147,3 @@ class Language:
             except KeyError:
                 return "???"
             return value
-
