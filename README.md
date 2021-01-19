@@ -6,6 +6,6 @@ https://www.youtube.com/watch?v=7BlS7_QZtZ0
 
 ** update jan.2020<br>
 add film Length<br>
-add skip dark frame (my camera made a blank frame evry time i start)
+add skip dark frame (my camera made a blank frame every time it starts)
 
 
