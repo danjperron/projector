@@ -15,7 +15,7 @@ git clone https://github.com/danjperron/projector.git
 - select arduino uno
 - open pi/projector/arduino/projector.ino
 - save it to is own folder project
-- select arduino unohi
+- select arduino uno
 - on line 6 & 7 you need to install two libraries
 - Start the browser on the pi and open url
 - https://github.com/adafruit/Adafruit-Motor-Shield-library
