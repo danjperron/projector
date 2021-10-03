@@ -25,7 +25,7 @@ git clone https://github.com/danjperron/projector.git
 - select code, download zip
 - close browser
 - from arduino gui goto  sketch, add library
-- from the download folder add the two libraries one after the other
+- from the Downloads folder add the two libraries one after the other
 - now compile and upload,
 - port should be set for arduino on nmine is /dev/ttyACM0
 
