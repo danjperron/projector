@@ -46,14 +46,11 @@ sudo raspi-config
 --- I need to install some python library using sudo even if isn't recommended
 sudo python3 -m pip install --upgrade --force-reinstall pip
 sudo apt install python3-opencv
-sudo pip3 install opencv
-pip3 install opencv
 pip3 install imutils
 sudo pip3 install imutils
 sudo pip3 install pillow
 sudo apt install python3-tk
 sudo apt install python3-pil python3-pil.imagetk
-sudo pip3 install tkinter
 sudo pip3 install picamera
 sudo mkdir /mnt/video
 sudo chmod ugo+r+w /mnt/video
