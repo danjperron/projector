@@ -1,0 +1,68 @@
+sudo apt update
+sudo apt upgrade
+
+from arduino.cc download the latest version of arduino arm 32 bits
+- untar and install arduino 
+- tar -xf ./Download/ardui....xz
+- cd arduin..
+- sudo ./install.sh
+
+
+git clone https://github.com/danjperron/projector.git
+
+- start arduino
+- select arduino uno
+- open pi/projector/arduino/projector.ino
+- save it to is own folder project
+- select arduino unohi
+- on line 6 & 7 you need to install two libraries
+- Start the browser on the pi and open url
+- https://github.com/adafruit/Adafruit-Motor-Shield-library
+- select code, download zip
+- now open the browser to the other library,
+- https://github.com/adafruit/AccelStepper
+- select code, download zip
+- close browser
+- from arduino gui goto  sketch, add library
+- from the download folder add the two libraries one after the other
+- now compile and upload,
+- port should be set for arduino on nmine is /dev/ttyACM0
+
+
+
+****** now the projector
+
+- set configuration for the raspberry Pi
+
+sudo raspi-config
+
+- enable pi camera
+- change password
+- change hostname
+- reboot
+
+
+--- now is time to install needed library
+--- I need to install some python library using sudo even if isn't recommended
+sudo python3 -m pip install --upgrade --force-reinstall pip
+sudo apt install python3-opencv
+sudo pip3 install opencv
+pip3 install opencv
+pip3 install imutils
+sudo pip3 install imutils
+sudo pip3 install pillow
+sudo apt install python3-tk
+sudo apt install python3-pil python3-pil.imagetk
+sudo pip3 install tkinter
+sudo pip3 install picamera
+sudo mkdir /mnt/video
+sudo chmod ugo+r+w /mnt/video
+cd /mnt/video
+
+
+***** now the projector should work without sudo
+cd
+cd projector
+python3 projector.py
+
+
