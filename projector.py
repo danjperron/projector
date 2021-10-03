@@ -493,7 +493,7 @@ class App():
                         break
                 print("create", videoName)
                 self.vidOut = cv2.VideoWriter(videoName,
-                                              cv2.VideoWriter_fourcc(*'MP4V'),
+                                              cv2.VideoWriter_fourcc(*'mp4v'),
                                               self.filmRate, (width, height))
                 self.vidOut.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
             print("write video Frame:", self.arduino.frameCount)
