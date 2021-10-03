@@ -2,8 +2,9 @@ sudo apt update
 sudo apt upgrade
 
 from arduino.cc download the latest version of arduino arm 32 bits
+-  Be sure it is the arm 32 bits version
 - untar and install arduino 
-- tar -xf ./Download/ardui....xz
+- tar -xf ./Downloads/ardui....xz
 - cd arduin..
 - sudo ./install.sh
 
