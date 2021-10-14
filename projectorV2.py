@@ -78,7 +78,7 @@ class App():
 #                 camResolution=PiCam_HQ_BINNING,
 #                 serialPort="/dev/ttyACM0"):
     def __init__(self, camDevice="/dev/video0",
-                 camResolution=PiCam_HQ_BINNING,
+                 camResolution=PiCam_auto,
                  serialPort="/dev/ttyACM0"):
         global cameraEnable
         # Language Class currently only French and English
