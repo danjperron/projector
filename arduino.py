@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import serial
 import time
+import sys
 
 '''
 Copyright <2020> <Daniel Perron>
@@ -135,7 +136,22 @@ class Arduino:
         self.write(b"S")
         self.clrStatus()
 
-    def next(self):
+
+    def isReady(self):
+        self.flush()
+        time.sleep(0.05)
+        self.write(b"I")
+        time.sleep(0.05)
+        Flag, lightFlag, motorFlag, \
+            frameCount, stepperPosition = self.readStatus()
+        if Flag:
+            if motorFlag == 0:
+                self.frameCount = frameCount
+                return True
+        return False
+
+
+    def next(self, waiting=True):
         startTime = time.time()
         self.write(b"N")
         # ok wait until 5 second before exit with error
@@ -146,6 +162,8 @@ class Arduino:
                 if motorFlag == 0:
                     self.frameCount = frameCount
                     return True
+            if not waiting:
+                return False
             self.flush()
             time.sleep(0.2)
             self.write(b"I")
