@@ -16,6 +16,7 @@ from arduino import Arduino
 import copy
 import cv2
 
+debugFlag = False
 cameraEnable = True
 
 try:
@@ -26,7 +27,7 @@ except OSError:
 
 
 '''
-Copyright <2021> <Daniel Perron>
+Copyright <2020> <Daniel Perron>
 
 Permission is hereby granted, free of charge,
 to any person obtaining a copy of this software
@@ -51,13 +52,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 '''
 
-'''.  
- Oct 7 2021
- Version 2 disable stream mode between capture. This removes 1 to 2 seconds between capture
- Also it is possible to bin 2x2 the camera to increase speed. This work for the original version
-
-'''
-
 # PiCamera Resolution
 # V1
 PiCam_V1 = (2592, 1944)
@@ -80,8 +74,11 @@ logGLFlag = True
 
 class App():
 
+#    def __init__(self, camDevice="/dev/video0",
+#                 camResolution=PiCam_HQ_BINNING,
+#                 serialPort="/dev/ttyACM0"):
     def __init__(self, camDevice="/dev/video0",
-                 camResolution=PiCam_auto,
+                 camResolution=PiCam_HQ_BINNING,
                  serialPort="/dev/ttyACM0"):
         global cameraEnable
         # Language Class currently only French and English
@@ -382,6 +379,7 @@ class App():
             self.arduino.light(False)
             self.arduino.light(False)
             self.arduino.close()
+            self.closeCameraStream()
             self.root.quit()
         else:
             self.refreshLanguage()
@@ -392,14 +390,25 @@ class App():
             self.stopButton['state'] = tk.NORMAL
             self.refreshFrameCount()
 
+
+    def isFrameReady(self):
+        if self.arduino.isReady():
+            self.refreshFrameCount()
+            if self.captureFlag:
+                self.root.after(100, self.captureImage)
+            else:
+                self.enableButtons(True)
+            self.refreshCaptureFlagLabel()
+            return True
+        return False
+
+
+
     def moveToNextFrame(self):
+        if debugFlag:
+            print("next")
         self.arduino.next()
-        self.refreshFrameCount()
-        if self.captureFlag:
-            self.root.after(100, self.captureImage)
-        else:
-            self.enableButtons(True)
-        self.refreshCaptureFlagLabel()
+        self.isFrameReady()
 
     def captureImage(self):
         # send a request
@@ -414,15 +423,16 @@ class App():
         # some horizontal border
 
         # First extract only needed parts
-
-        print("resize ", image.shape)
-        print("top", self.imageTop,
-              "left", self.imageLeft,
-              "bottom", self.imageBottom,
-              "right", self.imageRight)
+        if debugFlag:
+            print("resize ", image.shape)
+            print("top", self.imageTop,
+                  "left", self.imageLeft,
+                  "bottom", self.imageBottom,
+                  "right", self.imageRight)
         cut_image = image[self.imageTop:self.imageBottom,
                           self.imageLeft:self.imageRight]
-        print("cutimage", cut_image.shape)
+        if debugFlag:
+            print("cutimage", cut_image.shape)
         cut_dy, cut_dx, depth = cut_image.shape
 
         H = 1920
@@ -446,14 +456,16 @@ class App():
         dy, dx, depth = HD_Frame.shape
         borderV = (V - dy)//2
         borderH = (H - dx)//2
-        print("HD_Frame", HD_Frame.shape)
+        if debugFlag:
+            print("HD_Frame", HD_Frame.shape)
 
         blank_HDimage = np.zeros((V, H, 3), np.uint8)
         # change border color if you want by filling image first
         # blank_HDimage[0:1080,0:1920] = (255,255,255)
         # blank_HDimage[borderV:1080-borderV,borderH:1920-borderH]=HD_Frame
         blank_HDimage[borderV:borderV+dy, borderH:borderH+dx] = HD_Frame
-        print("resize Done")
+        if debugFlag:
+            print("resize Done")
         return blank_HDimage
 
     def getGL(self, Frame):
@@ -498,12 +510,14 @@ class App():
                     videoName = videoName + ".mp4"
                     if not os.path.exists(videoName):
                         break
-                print("create", videoName)
+                if debugFlag:
+                    print("create", videoName)
                 self.vidOut = cv2.VideoWriter(videoName,
-                                              cv2.VideoWriter_fourcc(*'MP4V'),
+                                              cv2.VideoWriter_fourcc(*'mp4v'),
                                               self.filmRate, (width, height))
                 self.vidOut.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
-            print("write video Frame:", self.arduino.frameCount)
+            if debugFlag:
+                print("write video Frame:", self.arduino.frameCount)
             self.vidOut.write(HD_image)
 
         if logGLFlag:
@@ -520,8 +534,8 @@ class App():
                 self.captureFlag = False
                 self.enableButtons(True)
                 self.arduino.light(False)
-            else:
-                self.root.after(100, self.moveToNextFrame)
+#            else:
+#                self.root.after(100, self.moveToNextFrame)
         else:
             self.enableButtons(True)
         self.refreshCaptureFlagLabel()
@@ -532,7 +546,14 @@ class App():
         self.openCameraStream()
         try:
             while not self.stopEvent.is_set():
+                time.sleep(0.01)
+
                 # is the image has beend requested
+                if self.captureFlag:
+                    if not self.isFrameReady():
+                        continue
+                    if debugFlag:
+                        print("Frame Ready")
                 if self.requestImage:
                     if self.camera is not None:
                         self.closeCameraStream()
@@ -550,6 +571,8 @@ class App():
                     #    piCam.close()
                     if frame is None:
                         continue
+                    # image taken ready to move
+                    self.arduino.next(waiting=False)
 
                     if PiRotate:
                         frame = cv2.rotate(frame, cv2.ROTATE_180)
@@ -573,7 +596,8 @@ class App():
                         if self.videoFlag:
                             self.videoFlag = False
                             self.vidOut.release()
-                            print("close video1")
+                            if debugFlag:
+                                print("close video1")
 
                         if self.logGL is not None:
                             self.logGL.close()
